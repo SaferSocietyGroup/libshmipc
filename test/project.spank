@@ -1,0 +1,4 @@
+name              mmaptest
+target_platform   mingw32
+cflags            std=gnu99 Wall I../include gstabs+
+sourcedir         . ../src
