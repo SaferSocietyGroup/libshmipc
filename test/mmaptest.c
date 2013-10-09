@@ -15,30 +15,48 @@ int main(int argc, char** argv)
 	char* buffer = malloc(1024 * 1024 * 10);
 
 	if(argc > 1 && !strcmp(argv[1], "host")){
+		shmipc* sm;
+
 		printf("host\n");
-		shmipc* sm = shmipc_open("test", SHMIPC_AM_WRITE);
-		ASSERTMSG(sm, "could not create mmap");
+
+		shmipc_error err = shmipc_open("test", SHMIPC_AM_WRITE, &sm);
+		ASSERTMSG(err == SHMIPC_ERR_SUCCESS, "could not open mmap");
 
 		int i = 0;
 		while(1){
-			printf("writing message number: %d\n", i++);
-			shmipc_send_message(sm, "test", "test", 6, 1);
+			shmipc_error err = shmipc_send_message(sm, "test", "test", 6, 1);
+			if(err == SHMIPC_ERR_SUCCESS){
+				printf("wrote a message (%d)\n", i);
+			}else if(err != SHMIPC_ERR_TIMEOUT){
+				printf("error: %d\n", err);
+				return 1;
+			}
+			i++;
 		}
 
 		shmipc_destroy(&sm);
 
 	}else{
+		shmipc* sm;
+
 		printf("client\n");
-		shmipc* sm = shmipc_create("test", 1024 * 1024 * 10, 32, SHMIPC_AM_READ);
-		ASSERTMSG(sm, "could not open mmap");
+
+		shmipc_error err = shmipc_create("test", 1024 * 1024 * 10, 32, SHMIPC_AM_READ, &sm);
+		ASSERTMSG(err == SHMIPC_ERR_SUCCESS, "could not open mmap");
 
 		while(1){
 			Sleep(1000);
 			size_t size;
-			if(shmipc_recv_message(sm, type, buffer, &size, 1000) == SHMIPC_ERR_SUCCESS){
+
+			shmipc_error err = shmipc_recv_message(sm, type, buffer, &size, 1000);
+
+			if(err == SHMIPC_ERR_SUCCESS){
 				printf("got a message\n");
-			}else{
+			}else if(err == SHMIPC_ERR_TIMEOUT){
 				printf("no message\n");
+			}else{
+				printf("error: %d\n", err);
+				return 1;
 			}
 		}
 

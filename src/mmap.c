@@ -34,7 +34,7 @@ struct shmipc
 };
 
 // asserts that a evaluates as true, otherwise exits the application with the error message msg
-#define ASSERTMSG(a, ...) if(!(a)){ printf(__VA_ARGS__); puts(""); exit(1); }
+//#define ASSERTMSG(a, ...) if(!(a)){ printf(__VA_ARGS__); puts(""); exit(1); }
 
 // Implementation inspired by http://comsci.liu.edu/~murali/win32/SharedMemory.htm
 
@@ -51,11 +51,14 @@ static wchar_t* str_to_wstr(const char* str)
 	return ret;
 }
 
-static shmipc* create_or_open(const char* name, uint32_t buffer_size, uint32_t buffer_count, shmipc_access_mode mode, bool open)
+static shmipc_error create_or_open(const char* name, uint32_t buffer_size, uint32_t buffer_count, shmipc_access_mode mode, bool open, shmipc** out_me)
 {
+	shmipc_error err = SHMIPC_ERR_UNKNOWN;
+
 	shmipc* me = (shmipc*)calloc(1, sizeof(shmipc));
 
-	ASSERTMSG(me, "could not allocate memory");
+	if(!me)
+		return SHMIPC_ERR_ALLOC;
 
 	me->header.count = buffer_count;
 	me->header.size = buffer_size;
@@ -70,11 +73,21 @@ static shmipc* create_or_open(const char* name, uint32_t buffer_size, uint32_t b
 				FALSE,          // do not inherit the name
 				me->name);          // name of mapping object
 		
-		ASSERTMSG(me->file, "Could not open shared memory file");
+		if(!me->file){
+			err = SHMIPC_ERR_OPEN_SHM;
+			goto cleanup;
+		}
 
 		// Temporarily map a view of the file to get buffer sizes etc.	
 		char* buffer = (char*)MapViewOfFile(me->file, FILE_MAP_WRITE, 0, 0, sizeof(s_header));
-		ASSERTMSG(buffer, "could not map view of file: (%ld)", (long int)GetLastError());
+
+		if(!buffer){
+			err = SHMIPC_ERR_OPEN_SHM;
+			goto cleanup;
+		}
+
+		//ASSERTMSG(buffer, "could not map view of file: (%ld)", (long int)GetLastError());
+
 		memcpy(&me->header, buffer, sizeof(s_header));
 		UnmapViewOfFile(buffer);
 
@@ -91,16 +104,26 @@ static shmipc* create_or_open(const char* name, uint32_t buffer_size, uint32_t b
 				me->name);                    // name of mapping object
 	}
 
-	ASSERTMSG(me->file, "failed to create/open file mapping (%lu)", (unsigned long)GetLastError());
+	//ASSERTMSG(me->file, "failed to create/open file mapping (%lu)", (unsigned long)GetLastError());
+	if(!me->file){
+		err = SHMIPC_ERR_OPEN_SHM;
+		goto cleanup;
+	}
 
 	// Map the views of the file
 	me->buffers = (char**)calloc(sizeof(char*), me->header.count);
 
 	char* mem = (char*)MapViewOfFile(me->file, FILE_MAP_WRITE, 0, 0, ACTUAL_SIZE(me->header.size) * me->header.count + sizeof(s_header));
 	//FlogExpD(ACTUAL_SIZE(me->header.size) * me->header.count + sizeof(header));
-	ASSERTMSG(mem, "could not map view of file (%lu)", (unsigned long)GetLastError());
 
-	if(!open) memcpy(mem, me, sizeof(s_header));
+	//ASSERTMSG(mem, "could not map view of file (%lu)", (unsigned long)GetLastError());
+	if(!mem){
+		err = SHMIPC_ERR_OPEN_SHM;
+		goto cleanup;
+	}
+
+	if(!open)
+		memcpy(mem, me, sizeof(s_header));
 
 	for(unsigned int i = 0; i < me->header.count; i++){
 		me->buffers[i] = mem + sizeof(s_header) + i * ACTUAL_SIZE(me->header.size);
@@ -111,78 +134,106 @@ static shmipc* create_or_open(const char* name, uint32_t buffer_size, uint32_t b
 	// Create the read semaphore
 	sprintf(tmp_name, "%s_read", name);
 	wchar_t* lname = str_to_wstr(tmp_name);
-	ASSERTMSG(me->read_sem = CreateSemaphoreW(NULL, 0, me->header.count, lname),
-		"could not create semaphore (%lu)", (unsigned long)GetLastError());
+	me->read_sem = CreateSemaphoreW(NULL, 0, me->header.count, lname);
+	//	"could not create semaphore (%lu)", (unsigned long)GetLastError());
 	free(lname);
+
+	if(!me->read_sem){
+		err = SHMIPC_ERR_CREATE_SEMAPHORE;
+		goto cleanup;
+	}
 	
 	// Create the write semaphore
 	sprintf(tmp_name, "%s_write", name);
 	lname = str_to_wstr(tmp_name);
-	ASSERTMSG(me->write_sem = CreateSemaphoreW(NULL, me->header.count, me->header.count, lname),
-		"could not create semaphore (%lu)", (unsigned long)GetLastError());
-
+	me->write_sem = CreateSemaphoreW(NULL, me->header.count, me->header.count, lname);
+	//	"could not create semaphore (%lu)", (unsigned long)GetLastError());
 	free(lname);
+	
+	if(!me->write_sem){
+		err = SHMIPC_ERR_CREATE_SEMAPHORE;
+		goto cleanup;
+	}
 
-	return me;
+	*out_me = me;
+	return SHMIPC_ERR_SUCCESS;
+
+cleanup:
+	if(me)
+		free(me);
+
+	return err;
 }
 
-static char* acquire_buffer(shmipc* me, int timeout)
+static shmipc_error acquire_buffer(shmipc* me, int timeout, char** buffer)
 {
-	ASSERTMSG(!me->buffer_in_use, "trying to acquire buffer twice");
+	if(me->buffer_in_use)
+		return SHMIPC_ERR_DOUBLE_ACQUIRE;
 
-	if(WaitForSingleObject(me->mode == SHMIPC_AM_WRITE ? me->write_sem : me->read_sem, timeout) == 0){
-		//FlogD("got data");
+	DWORD ret = WaitForSingleObject(me->mode == SHMIPC_AM_WRITE ? me->write_sem : me->read_sem, timeout);
+
+	if(ret == 0){
 		me->buffer_in_use = true;
-		//printf("me->buffer_pos %d %% %d -> %d\n", 
-		//	me->buffer_pos, me->header.count, me->buffer_pos % me->header.count);
 
-		char* buffer = me->buffers[me->buffer_pos++ % me->header.count];
-		//printf("%p\n", buffer);
-		return buffer;
+		*buffer = me->buffers[me->buffer_pos++ % me->header.count];
+		return SHMIPC_ERR_SUCCESS;
 	}
-	return NULL;
+
+	return ret == WAIT_TIMEOUT ? SHMIPC_ERR_TIMEOUT : SHMIPC_ERR_WAIT_FAILED;
 }
 
 shmipc_error shmipc_acquire_buffer_r(shmipc* me, char* out_type, const char** out_buffer, size_t* out_size, int timeout)
 {
-	ASSERTMSG(me->mode == SHMIPC_AM_READ, "trying to acquire a read buffer from a write mmap");
-	const char* buffer = acquire_buffer(me, timeout);
+	if(me->mode != SHMIPC_AM_READ)
+		return SHMIPC_ERR_WRONG_MODE;
 
-	if(buffer){
-		s_message_header* header = (s_message_header*)buffer;
+	//ASSERTMSG(me->mode == SHMIPC_AM_READ, "trying to acquire a read buffer from a write mmap");
 
-		memcpy(out_type, header->type, SHMIPC_MESSAGE_TYPE_LENGTH);
-		*out_size  = header->length;
-		*out_buffer = buffer + sizeof(s_message_header);
+	char* buffer;
+	shmipc_error err = acquire_buffer(me, timeout, &buffer);
+	if(err != SHMIPC_ERR_SUCCESS)
+		return err;
 
-		return SHMIPC_ERR_SUCCESS;
-	}
+	s_message_header* header = (s_message_header*)buffer;
 
-	return SHMIPC_ERR_UNKNOWN;
+	memcpy(out_type, header->type, SHMIPC_MESSAGE_TYPE_LENGTH);
+	*out_size  = header->length;
+	*out_buffer = buffer + sizeof(s_message_header);
+
+	return SHMIPC_ERR_SUCCESS;
 }
 
 shmipc_error shmipc_acquire_buffer_w(shmipc* me, char** out_buffer, int timeout)
 {
-	ASSERTMSG(me->mode == SHMIPC_AM_WRITE, "trying to acquire a write buffer from a read mmap");
-	char* ret = acquire_buffer(me, timeout);
+	if(me->mode != SHMIPC_AM_WRITE)
+		return SHMIPC_ERR_WRONG_MODE;
 
-	if(ret){
-		*out_buffer = ret + sizeof(s_message_header);
-		return SHMIPC_ERR_SUCCESS;
-	}
+	//ASSERTMSG(me->mode == SHMIPC_AM_WRITE, "trying to acquire a write buffer from a read mmap");
 
-	return SHMIPC_ERR_UNKNOWN;
+	
+	char* buffer;
+	shmipc_error err = acquire_buffer(me, timeout, &buffer);
+	if(err != SHMIPC_ERR_SUCCESS)
+		return err;
+
+	*out_buffer = buffer + sizeof(s_message_header);
+	return SHMIPC_ERR_SUCCESS;
 }
 
-void shmipc_return_buffer(shmipc* me)
+shmipc_error shmipc_return_buffer(shmipc* me)
 {
-	ASSERTMSG(me->buffer_in_use, "trying to return buffer twice");
+	//ASSERTMSG(me->buffer_in_use, "trying to return buffer twice");
+	if(!me->buffer_in_use)
+		return SHMIPC_ERR_DOUBLE_RETURN;
+
 	me->buffer_in_use = false;
 	ReleaseSemaphore(me->mode == SHMIPC_AM_WRITE ? me->read_sem : me->write_sem, 1, NULL);
+
+	return SHMIPC_ERR_SUCCESS;
 }
 
 
-void shmipc_return_buffer_w(shmipc* me, char** buffer, uint32_t length, const char* type)
+shmipc_error shmipc_return_buffer_w(shmipc* me, char** buffer, uint32_t length, const char* type)
 {
 	char* real_buf = (*buffer) -= sizeof(s_message_header);
 	s_message_header* header = (s_message_header*)real_buf;
@@ -190,24 +241,32 @@ void shmipc_return_buffer_w(shmipc* me, char** buffer, uint32_t length, const ch
 	header->length = length;
 	strncpy(header->type, type, SHMIPC_MESSAGE_TYPE_LENGTH);
 
-	shmipc_return_buffer(me);
+	shmipc_error err = shmipc_return_buffer(me);
+	if(err != SHMIPC_ERR_SUCCESS)
+		return err;
+
 	*buffer = NULL;
+	return SHMIPC_ERR_SUCCESS;
 }
 
-void shmipc_return_buffer_r(shmipc* me, const char** buffer)
+shmipc_error shmipc_return_buffer_r(shmipc* me, const char** buffer)
 {
-	shmipc_return_buffer(me);
+	shmipc_error err = shmipc_return_buffer(me);
+	if(err != SHMIPC_ERR_SUCCESS)
+		return err;
+
 	*buffer = NULL;
+	return SHMIPC_ERR_SUCCESS;
 }
 
-shmipc* shmipc_open(const char* name, shmipc_access_mode mode)
+shmipc_error shmipc_open(const char* name, shmipc_access_mode mode, shmipc** shmipc)
 {
-	return create_or_open(name, 0, 0, mode, true);
+	return create_or_open(name, 0, 0, mode, true, shmipc);
 }
 
-shmipc* shmipc_create(const char* name, size_t buffer_size, int buffer_count, shmipc_access_mode mode)
+shmipc_error shmipc_create(const char* name, size_t buffer_size, int buffer_count, shmipc_access_mode mode, shmipc** shmipc)
 {
-	return create_or_open(name, buffer_size, buffer_count, mode, false);
+	return create_or_open(name, buffer_size, buffer_count, mode, false, shmipc);
 }
 
 void shmipc_Destroy(shmipc** me)
