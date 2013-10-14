@@ -35,6 +35,12 @@ struct shmipc
 	HANDLE file;
 };
 
+struct shmhandle
+{
+	HANDLE file;
+	void* view;
+};
+
 // asserts that a evaluates as true, otherwise exits the application with the error message msg
 //#define ASSERTMSG(a, ...) if(!(a)){ printf(__VA_ARGS__); puts(""); exit(1); }
 
@@ -47,10 +53,108 @@ static wchar_t* str_to_wstr(const char* str)
 	int len = strlen(str);
 
 	wchar_t* ret = (wchar_t*)calloc(1, (len + 1) * sizeof(wchar_t));
-	for(int i = 0; i < len; i++)
-		ret[i] = str[i];
+
+	if(ret){
+		for(int i = 0; i < len; i++)
+			ret[i] = str[i];
+	}
 
 	return ret;
+}
+
+static shmipc_error create_or_open_shm(const char* name, size_t* in_out_size, void** out_area, shmhandle** out_handle, bool open, bool rw)
+{
+	shmipc_error ret = SHMIPC_ERR_UNKNOWN;
+
+	shmhandle* handle = calloc(1, sizeof(shmhandle));
+	if(!handle)
+		return SHMIPC_ERR_ALLOC;
+		 
+	wchar_t* wname = str_to_wstr(name);
+	if(!wname)
+		return SHMIPC_ERR_ALLOC;
+
+	if(!open){
+		// TODO very large areas, above 4GB  
+		handle->file = CreateFileMappingW(
+				INVALID_HANDLE_VALUE,                   // use paging file
+				NULL,                                   // default security
+				PAGE_READWRITE,                         // read/write access
+				0,                                      // size of memory area (high-order DWORD)
+				*in_out_size,                           // size of memory area (low-order DWORD)
+				wname);                                 // name of mapping object
+	}else{
+		handle->file = OpenFileMappingW(
+				rw ? FILE_MAP_WRITE : FILE_MAP_READ,   // read/write access
+				FALSE,            // do not inherit the name
+				wname);           // name of mapping object
+	}
+
+	free(wname);
+	
+	if(!handle->file){
+		printf("1\n");
+		ret = SHMIPC_ERR_OPEN_SHM;
+		goto cleanup;
+	}
+	
+	// map the view
+	handle->view = MapViewOfFile(handle->file, rw ? FILE_MAP_WRITE : FILE_MAP_READ, 0, 0, 0);
+
+	if(!handle->view){
+		printf("3\n");
+		ret = SHMIPC_ERR_OPEN_SHM;
+		goto cleanup;
+	}
+
+	*out_handle = handle;
+	*out_area = handle->view;
+
+	if(open){
+		MEMORY_BASIC_INFORMATION info;
+		if(VirtualQuery(handle->view, &info, sizeof(MEMORY_BASIC_INFORMATION)) == 0){
+			printf("4\n");
+			ret = SHMIPC_ERR_GET_SIZE;
+			goto cleanup;
+		}
+		*in_out_size = info.RegionSize;
+	}
+
+	return SHMIPC_ERR_SUCCESS;
+
+cleanup:
+	// TODO close mapping on error
+	free(handle);
+	return ret;
+}
+
+shmipc_error shmipc_create_shm_rw(const char* name, size_t size, void** out_area, shmhandle** out_handle)
+{
+	return create_or_open_shm(name, &size, out_area, out_handle, false, true);
+}
+
+shmipc_error shmipc_open_shm_rw(const char* name, size_t* out_size, void** out_area, shmhandle** out_handle)
+{
+	return create_or_open_shm(name, out_size, out_area, out_handle, true, true);
+}
+
+shmipc_error shmipc_create_shm_ro(const char* name, size_t size, const void** out_area, shmhandle** out_handle)
+{
+	return create_or_open_shm(name, &size, (void**)out_area, out_handle, true, false);
+}
+
+shmipc_error shmipc_open_shm_ro(const char* name, size_t* out_size, const void** out_area, shmhandle** out_handle)
+{
+	return create_or_open_shm(name, out_size, (void**)out_area, out_handle, true, false);
+}
+
+void shmipc_destroy_shm(shmhandle** handle)
+{
+	UnmapViewOfFile((*handle)->view);
+
+	CloseHandle((*handle)->file);
+	free(*handle);
+	*handle = NULL;
 }
 
 static shmipc_error create_or_open(const char* name, uint32_t buffer_size, uint32_t buffer_count, shmipc_access_mode mode, bool open, shmipc** out_me)
@@ -64,8 +168,13 @@ static shmipc_error create_or_open(const char* name, uint32_t buffer_size, uint3
 
 	me->header.count = buffer_count;
 	me->header.size = buffer_size;
-	me->name = str_to_wstr(name);
 	me->mode = mode;
+	me->name = str_to_wstr(name);
+	
+	if(!me->name){
+		err = SHMIPC_ERR_ALLOC;
+		goto cleanup;
+	}
 
 	if(open){
 		// Open the existing "file"
@@ -271,7 +380,7 @@ shmipc_error shmipc_create(const char* name, size_t buffer_size, int buffer_coun
 	return create_or_open(name, buffer_size, buffer_count, mode, false, shmipc);
 }
 
-void shmipc_Destroy(shmipc** me)
+void shmipc_destroy(shmipc** me)
 {
 	for(unsigned int i = 0; i < (*me)->header.count; i++){
 		UnmapViewOfFile((*me)->buffers[i]);
