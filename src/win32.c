@@ -1,3 +1,5 @@
+#ifdef _WIN32
+
 #include "libshmipc.h"
 
 #include <stdio.h>
@@ -170,7 +172,7 @@ static shmipc_error acquire_buffer(shmipc* me, int timeout, char** buffer)
 	if(me->buffer_in_use)
 		return SHMIPC_ERR_DOUBLE_ACQUIRE;
 
-	DWORD ret = WaitForSingleObject(me->mode == SHMIPC_AM_WRITE ? me->write_sem : me->read_sem, timeout);
+	DWORD ret = WaitForSingleObject(me->mode == SHMIPC_AM_WRITE ? me->write_sem : me->read_sem, timeout == SHMIPC_INFINITE ? INFINITE : timeout);
 
 	if(ret == 0){
 		me->buffer_in_use = true;
@@ -280,3 +282,5 @@ void shmipc_Destroy(shmipc** me)
 	free(*me);
 	*me = NULL;
 }
+
+#endif

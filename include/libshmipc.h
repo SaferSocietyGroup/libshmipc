@@ -8,6 +8,7 @@ extern "C" {
 #include <stddef.h>
 
 #define SHMIPC_MESSAGE_TYPE_LENGTH 256
+#define SHMIPC_INFINITE -1
 
 typedef enum {
 	SHMIPC_AM_READ  = 0,
@@ -36,7 +37,6 @@ shmipc_error shmipc_acquire_buffer_r(shmipc* me, char* out_type, const char** ou
 shmipc_error shmipc_return_buffer_r(shmipc* me, const char** buffer);
 
 shmipc_error shmipc_acquire_buffer_w(shmipc* me, char** out_buffer, int timeout);
-
 shmipc_error shmipc_return_buffer_w(shmipc* me, char** buffer, size_t size, const char* type);
 
 shmipc_error shmipc_send_message(shmipc* me, const char* type, const char* message, size_t length, int timeout);

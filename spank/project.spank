@@ -1,0 +1,14 @@
+name		libshmipc
+
+targettype	lib-static
+sourcedir	src
+cflags		Iinclude std=c99 Wall
+
+inst_copy	$(target) $(inst_prefix)lib/$(target)
+
+inst_mkdir	$(inst_prefix)/include/$(name)
+inst_copy	include/$(name).h $(inst_prefix)/include/$(name)
+
+inst_copy	pkg-config/$(name).pc $(inst_prefix)lib/pkgconfig/$(name).pc
+
+target_platform mingw32
