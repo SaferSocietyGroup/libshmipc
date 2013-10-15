@@ -41,6 +41,8 @@ shmipc_error shmipc_return_buffer_r(shmipc* me, const char** buffer);
 shmipc_error shmipc_acquire_buffer_w(shmipc* me, char** out_buffer, int timeout);
 shmipc_error shmipc_return_buffer_w(shmipc* me, char** buffer, size_t size, const char* type);
 
+int shmipc_get_message_max_length(shmipc* me);
+
 shmipc_error shmipc_send_message(shmipc* me, const char* type, const char* message, size_t length, int timeout);
 shmipc_error shmipc_recv_message(shmipc* me, char* out_type, char* out_message, size_t* out_size, int timeout);
 

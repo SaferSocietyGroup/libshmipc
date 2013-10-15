@@ -157,6 +157,11 @@ void shmipc_destroy_shm(shmhandle** handle)
 	*handle = NULL;
 }
 
+int shmipc_get_message_max_length(shmipc* me)
+{
+	return me->header.size;
+}
+
 static shmipc_error create_or_open(const char* name, uint32_t buffer_size, uint32_t buffer_count, shmipc_access_mode mode, bool open, shmipc** out_me)
 {
 	shmipc_error err = SHMIPC_ERR_UNKNOWN;
@@ -178,7 +183,7 @@ static shmipc_error create_or_open(const char* name, uint32_t buffer_size, uint3
 
 	if(open){
 		// Open the existing "file"
-		printf("opening existing shared memory file\n");
+		printf("opening existing shared memory file: '%s'\n", name);
 		me->file = OpenFileMappingW(
 				FILE_MAP_WRITE, // read/write access
 				FALSE,          // do not inherit the name
@@ -205,7 +210,7 @@ static shmipc_error create_or_open(const char* name, uint32_t buffer_size, uint3
 		printf("Opened file with %u buffers of size %u\n", me->header.count, me->header.size);
 	}else{
 		// Create a new "file"
-		printf("creating new shared memory file\n");
+		printf("creating new shared memory file: '%s'\n", name);
 		me->file = CreateFileMappingW(
 				INVALID_HANDLE_VALUE,     // use paging file
 				NULL,                     // default security
