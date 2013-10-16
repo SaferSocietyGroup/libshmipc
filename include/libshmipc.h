@@ -17,6 +17,7 @@ typedef enum {
 
 typedef enum {
 	SHMIPC_ERR_SUCCESS,
+	SHMIPC_ERR_UNKNOWN,
 	SHMIPC_ERR_TIMEOUT,
 	SHMIPC_ERR_ALLOC,
 	SHMIPC_ERR_OPEN_SHM,
@@ -26,7 +27,7 @@ typedef enum {
 	SHMIPC_ERR_WAIT_FAILED,
 	SHMIPC_ERR_WRONG_MODE,
 	SHMIPC_ERR_GET_SIZE,
-	SHMIPC_ERR_UNKNOWN,
+	SHMIPC_ERR_MSG_TOO_LONG,
 } shmipc_error;
 
 typedef struct shmipc shmipc;
@@ -45,6 +46,9 @@ int shmipc_get_message_max_length(shmipc* me);
 
 shmipc_error shmipc_send_message(shmipc* me, const char* type, const char* message, size_t length, int timeout);
 shmipc_error shmipc_recv_message(shmipc* me, char* out_type, char* out_message, size_t* out_size, int timeout);
+
+size_t shmipc_get_buffer_size(shmipc* me);
+int shmipc_get_buffer_count(shmipc* me);
 
 void shmipc_destroy(shmipc** me);
 

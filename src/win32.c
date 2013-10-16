@@ -397,4 +397,14 @@ void shmipc_destroy(shmipc** me)
 	*me = NULL;
 }
 
+size_t shmipc_get_buffer_size(shmipc* me)
+{
+	return me->header.size;
+}
+
+int shmipc_get_buffer_count(shmipc* me)
+{
+	return me->header.count;
+}
+
 #endif

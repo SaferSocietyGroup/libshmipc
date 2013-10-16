@@ -3,6 +3,9 @@
 
 shmipc_error shmipc_send_message(shmipc* me, const char* type, const char* message, size_t length, int timeout)
 {
+	if(shmipc_get_buffer_size(me) < length + 1)
+		return SHMIPC_ERR_MSG_TOO_LONG;
+
 	char* buffer;
 	shmipc_error err = shmipc_acquire_buffer_w(me, &buffer, timeout);
 
@@ -10,7 +13,11 @@ shmipc_error shmipc_send_message(shmipc* me, const char* type, const char* messa
 		return err;
 
 	memcpy(buffer, message, length);
-	shmipc_return_buffer_w(me, &buffer, length, type);
+	buffer[length] = 0;
+
+	printf("sending: %s\n", buffer);
+
+	shmipc_return_buffer_w(me, &buffer, length + 1, type);
 
 	return SHMIPC_ERR_SUCCESS;
 }
