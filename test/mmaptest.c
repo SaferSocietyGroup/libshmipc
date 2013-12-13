@@ -10,18 +10,20 @@
 
 #include <windows.h>
 
-void queue_create()
+#define TESTSTRING "test"
+
+void queue_open()
 {
 	shmipc* sm;
 
-	printf("queue create\n");
+	printf("queue open\n");
 
 	shmipc_error err = shmipc_open("test", SHMIPC_AM_WRITE, &sm);
 	ASSERTMSG(err == SHMIPC_ERR_SUCCESS, "could not open mmap");
 
 	int i = 0;
 	while(1){
-		shmipc_error err = shmipc_send_message(sm, "test", "test", 6, 1);
+		shmipc_error err = shmipc_send_message(sm, TESTSTRING, TESTSTRING, strlen(TESTSTRING), 1);
 		if(err == SHMIPC_ERR_SUCCESS){
 			printf("wrote a message (%d)\n", i);
 		}else if(err != SHMIPC_ERR_TIMEOUT){
@@ -34,13 +36,13 @@ void queue_create()
 	shmipc_destroy(&sm);
 }
 
-void queue_open()
+void queue_create()
 {
 	char type[256];
 	char* buffer = malloc(1024 * 1024 * 10);
 	shmipc* sm;
 
-	printf("queue open\n");
+	printf("queue create\n");
 
 	shmipc_error err = shmipc_create("test", 1024 * 1024 * 10, 32, SHMIPC_AM_READ, &sm);
 	ASSERTMSG(err == SHMIPC_ERR_SUCCESS, "could not open mmap");
@@ -52,7 +54,10 @@ void queue_open()
 		shmipc_error err = shmipc_recv_message(sm, type, buffer, &size, 1000);
 
 		if(err == SHMIPC_ERR_SUCCESS){
-			printf("got a message\n");
+			printf("got a message: '%s' (%d)\n", buffer, size);
+			ASSERTMSG(size == strlen(TESTSTRING) + 1, "incorrect message size");
+			ASSERTMSG(strcmp(buffer, TESTSTRING) == 0, "incorrect message");
+
 		}else if(err == SHMIPC_ERR_TIMEOUT){
 			printf("no message\n");
 		}else{

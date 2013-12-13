@@ -13,11 +13,8 @@ shmipc_error shmipc_send_message(shmipc* me, const char* type, const char* messa
 		return err;
 
 	memcpy(buffer, message, length);
-	buffer[length] = 0;
 
-	printf("sending: %s\n", buffer);
-
-	shmipc_return_buffer_w(me, &buffer, length + 1, type);
+	shmipc_return_buffer_w(me, &buffer, length, type);
 
 	return SHMIPC_ERR_SUCCESS;
 }
@@ -34,6 +31,9 @@ shmipc_error shmipc_recv_message(shmipc* me, char* out_type, char* out_message, 
 
 	memcpy(out_message, buffer, size);
 	shmipc_return_buffer_r(me, &buffer); 
+
+	out_message[size] = 0;
+	*out_size = size + 1;
 
 	return SHMIPC_ERR_SUCCESS;
 }

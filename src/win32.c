@@ -12,6 +12,12 @@
 #define VC_EXTRALEAN
 #include <windows.h>
 
+#ifdef DEBUG
+#	define dprintf(...) printf(__VA_ARGS__)
+#else
+#	define dprintf(...)
+#endif
+
 typedef struct __attribute__ ((packed)) {
 	uint32_t size;
 	uint32_t count;
@@ -93,7 +99,6 @@ static shmipc_error create_or_open_shm(const char* name, size_t* in_out_size, vo
 	free(wname);
 	
 	if(!handle->file){
-		printf("1\n");
 		ret = SHMIPC_ERR_OPEN_SHM;
 		goto cleanup;
 	}
@@ -102,7 +107,6 @@ static shmipc_error create_or_open_shm(const char* name, size_t* in_out_size, vo
 	handle->view = MapViewOfFile(handle->file, rw ? FILE_MAP_WRITE : FILE_MAP_READ, 0, 0, 0);
 
 	if(!handle->view){
-		printf("3\n");
 		ret = SHMIPC_ERR_OPEN_SHM;
 		goto cleanup;
 	}
@@ -113,7 +117,6 @@ static shmipc_error create_or_open_shm(const char* name, size_t* in_out_size, vo
 	if(open){
 		MEMORY_BASIC_INFORMATION info;
 		if(VirtualQuery(handle->view, &info, sizeof(MEMORY_BASIC_INFORMATION)) == 0){
-			printf("4\n");
 			ret = SHMIPC_ERR_GET_SIZE;
 			goto cleanup;
 		}
@@ -183,7 +186,7 @@ static shmipc_error create_or_open(const char* name, uint32_t buffer_size, uint3
 
 	if(open){
 		// Open the existing "file"
-		printf("opening existing shared memory file: '%s'\n", name);
+		dprintf("opening existing shared memory file: '%s'\n", name);
 		me->file = OpenFileMappingW(
 				FILE_MAP_WRITE, // read/write access
 				FALSE,          // do not inherit the name
@@ -207,10 +210,10 @@ static shmipc_error create_or_open(const char* name, uint32_t buffer_size, uint3
 		memcpy(&me->header, buffer, sizeof(s_header));
 		UnmapViewOfFile(buffer);
 
-		printf("Opened file with %u buffers of size %u\n", me->header.count, me->header.size);
+		dprintf("Opened file with %u buffers of size %u\n", me->header.count, me->header.size);
 	}else{
 		// Create a new "file"
-		printf("creating new shared memory file: '%s'\n", name);
+		dprintf("creating new shared memory file: '%s'\n", name);
 		me->file = CreateFileMappingW(
 				INVALID_HANDLE_VALUE,     // use paging file
 				NULL,                     // default security
