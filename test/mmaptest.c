@@ -55,7 +55,7 @@ void queue_create()
 
 		if(err == SHMIPC_ERR_SUCCESS){
 			printf("got a message: '%s' (%d)\n", buffer, size);
-			ASSERTMSG(size == strlen(TESTSTRING) + 1, "incorrect message size");
+			ASSERTMSG(size == strlen(TESTSTRING), "incorrect message size");
 			ASSERTMSG(strcmp(buffer, TESTSTRING) == 0, "incorrect message");
 
 		}else if(err == SHMIPC_ERR_TIMEOUT){

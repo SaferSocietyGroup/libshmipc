@@ -33,7 +33,7 @@ shmipc_error shmipc_recv_message(shmipc* me, char* out_type, char* out_message, 
 	shmipc_return_buffer_r(me, &buffer); 
 
 	out_message[size] = 0;
-	*out_size = size + 1;
+	*out_size = size;
 
 	return SHMIPC_ERR_SUCCESS;
 }
