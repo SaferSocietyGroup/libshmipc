@@ -66,8 +66,8 @@ shmipc_error shmstream_create(const char* name, shmstream** out_stream);
 shmipc_error shmstream_open_from(shmipc* reader, shmipc* writer, shmstream** out_stream);
 shmipc_error shmstream_open(const char* name, shmstream** out_stream);
 
-shmipc_error shmstream_read_pkt(shmstream* me, char** out_pkt, size_t* out_size);
-shmipc_error shmstream_write_pkt(shmstream* me, const char* buffer, size_t size);
+shmipc_error shmstream_read_pkt(shmstream* me, char* out_type, char** out_pkt, size_t* out_size);
+shmipc_error shmstream_write_pkt(shmstream* me, const char* type, const char* buffer, size_t size);
 
 void shmstream_destroy(shmstream** me);
 

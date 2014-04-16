@@ -116,13 +116,14 @@ void tshmstream_create()
 		for(int j = 0; j < sizeof(buffer); j++)
 			buffer[j] = (char)(i + j);
 
-		e = shmstream_write_pkt(s, buffer, sizeof(buffer));
+		e = shmstream_write_pkt(s, "test", buffer, sizeof(buffer));
 		ASSERTMSG(e == SHMIPC_ERR_SUCCESS, "could not write packet");
 	}
 }
 
 void tshmstream_open()
 {
+	char type[SHMIPC_MESSAGE_TYPE_LENGTH];
 	shmstream* s;
 	shmipc_error e = shmstream_open("test", &s);
 	ASSERTMSG(e == SHMIPC_ERR_SUCCESS, "could not create stream");
@@ -131,8 +132,8 @@ void tshmstream_open()
 		char* buffer;
 		size_t size;
 
-		e = shmstream_read_pkt(s, &buffer, &size);
-		ASSERTMSG(e == SHMIPC_ERR_SUCCESS, "could not read packet");
+		e = shmstream_read_pkt(s, type, &buffer, &size);
+		ASSERTMSG(e == SHMIPC_ERR_SUCCESS, "could not read packet (%d)", e);
 
 		ASSERTMSG(size == 12345, "unexpected packet size");
 

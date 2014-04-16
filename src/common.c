@@ -143,19 +143,15 @@ void shmstream_destroy(shmstream** me)
 	*me = NULL;
 }
 
-shmipc_error shmipc_acquire_buffer_r(shmipc* me, char* out_type, const char** out_buffer, size_t* out_size, int timeout);
-shmipc_error shmipc_return_buffer_r(shmipc* me, const char** buffer);
-
-shmipc_error shmstream_read_pkt(shmstream* me, char** out_pkt, size_t* out_size)
+shmipc_error shmstream_read_pkt(shmstream* me, char* out_type, char** out_pkt, size_t* out_size)
 {
 	assert(me);
 
-	char type[SHMIPC_MESSAGE_TYPE_LENGTH];
 	char tmp[shmipc_get_message_max_length(me->reader)];
 	size_t read_size;
 
 	// get the size of the packet (or return NO_DATA if none is available)
-	shmipc_error e = shmipc_recv_message(me->reader, type, tmp, &read_size, 0);
+	shmipc_error e = shmipc_recv_message(me->reader, out_type, tmp, &read_size, 0);
 	if(e != SHMIPC_ERR_SUCCESS)
 		return e == SHMIPC_ERR_TIMEOUT ? SHMIPC_ERR_NO_DATA : e;
 	
@@ -176,7 +172,7 @@ shmipc_error shmstream_read_pkt(shmstream* me, char** out_pkt, size_t* out_size)
 
 	// read all buffers until the whole packet has been read
 	while(size > 0){
-		e = shmipc_recv_message(me->reader, type, rb, &read_size, SHMIPC_INFINITE);
+		e = shmipc_recv_message(me->reader, out_type, rb, &read_size, SHMIPC_INFINITE);
 
 		if(e != SHMIPC_ERR_SUCCESS){
 			free(buffer);
@@ -190,12 +186,12 @@ shmipc_error shmstream_read_pkt(shmstream* me, char** out_pkt, size_t* out_size)
 	return SHMIPC_ERR_SUCCESS;
 }
 
-shmipc_error shmstream_write_pkt(shmstream* me, const char* buffer, size_t size)
+shmipc_error shmstream_write_pkt(shmstream* me, const char* type, const char* buffer, size_t size)
 {
 	size_t buffer_size = shmipc_get_buffer_size(me->writer);
 	uint64_t u64size = size;
 	
-	shmipc_error e = shmipc_send_message(me->writer, "packet size", (char*)&u64size, sizeof(uint64_t), SHMIPC_INFINITE);
+	shmipc_error e = shmipc_send_message(me->writer, type, (char*)&u64size, sizeof(uint64_t), SHMIPC_INFINITE);
 	if(e != SHMIPC_ERR_SUCCESS)
 		return e;
 
@@ -210,7 +206,7 @@ shmipc_error shmstream_write_pkt(shmstream* me, const char* buffer, size_t size)
 
 		memcpy(wbuffer, buffer, write_size);
 		
-		e = shmipc_return_buffer_w(me->writer, &wbuffer, write_size, "stream");
+		e = shmipc_return_buffer_w(me->writer, &wbuffer, write_size, type);
 		if(e != SHMIPC_ERR_SUCCESS)
 			return e;
 
