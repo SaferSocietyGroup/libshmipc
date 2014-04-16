@@ -105,6 +105,42 @@ void shm_create()
 	shmipc_destroy_shm(&handle);
 }
 
+void tshmstream_create()
+{
+	shmstream* s;
+	shmipc_error e = shmstream_create("test", &s);
+	ASSERTMSG(e == SHMIPC_ERR_SUCCESS, "could not create stream");
+
+	for(int i = 0; i < 10; i++){
+		char buffer[12345] = {0};
+		for(int j = 0; j < sizeof(buffer); j++)
+			buffer[j] = (char)(i + j);
+
+		e = shmstream_write_pkt(s, buffer, sizeof(buffer));
+		ASSERTMSG(e == SHMIPC_ERR_SUCCESS, "could not write packet");
+	}
+}
+
+void tshmstream_open()
+{
+	shmstream* s;
+	shmipc_error e = shmstream_open("test", &s);
+	ASSERTMSG(e == SHMIPC_ERR_SUCCESS, "could not create stream");
+
+	for(int i = 0; i < 10; i++){
+		char* buffer;
+		size_t size;
+
+		e = shmstream_read_pkt(s, &buffer, &size);
+		ASSERTMSG(e == SHMIPC_ERR_SUCCESS, "could not read packet");
+
+		ASSERTMSG(size == 12345, "unexpected packet size");
+
+		for(int j = 0; j < size; j++)
+			ASSERTMSG(buffer[j] == (char)(i + j), "unexpected packet contents");
+	}
+}
+
 int main(int argc, char** argv)
 {
 	ASSERTMSG(argc == 3, "usage: %s [queue/shm] [open/create]", argv[0]);
@@ -123,6 +159,13 @@ int main(int argc, char** argv)
 			shm_open();
 		else
 			shm_create();
+	}
+	
+	else if(!strcmp(argv[1], "stream")){
+		if(open)
+			tshmstream_open();
+		else
+			tshmstream_create();
 	}
 
 	else{

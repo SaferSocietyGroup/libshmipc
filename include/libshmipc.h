@@ -28,10 +28,12 @@ typedef enum {
 	SHMIPC_ERR_WRONG_MODE,
 	SHMIPC_ERR_GET_SIZE,
 	SHMIPC_ERR_MSG_TOO_LONG,
+	SHMIPC_ERR_NO_DATA
 } shmipc_error;
 
 typedef struct shmipc shmipc;
 typedef struct shmhandle shmhandle;
+typedef struct shmstream shmstream;
 
 shmipc_error shmipc_create(const char* name, size_t buffer_size, int buffer_count, shmipc_access_mode mode, shmipc** out_shmipc);
 shmipc_error shmipc_open(const char* name, shmipc_access_mode mode, shmipc** out_shmipc);
@@ -59,6 +61,15 @@ shmipc_error shmipc_create_shm_ro(const char* name, size_t size, const void** ou
 shmipc_error shmipc_open_shm_ro(const char* name, size_t* out_size, const void** out_area, shmhandle** out_handle);
 
 void shmipc_destroy_shm(shmhandle** handle);
+
+shmipc_error shmstream_create(const char* name, shmstream** out_stream);
+shmipc_error shmstream_open_from(shmipc* reader, shmipc* writer, shmstream** out_stream);
+shmipc_error shmstream_open(const char* name, shmstream** out_stream);
+
+shmipc_error shmstream_read_pkt(shmstream* me, char** out_pkt, size_t* out_size);
+shmipc_error shmstream_write_pkt(shmstream* me, const char* buffer, size_t size);
+
+void shmstream_destroy(shmstream** me);
 
 #ifdef __cplusplus
 }

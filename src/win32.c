@@ -7,6 +7,7 @@
 #include <wchar.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <assert.h>
 
 #define WIN32_LEAN_AND_MEAN
 #define VC_EXTRALEAN
@@ -162,6 +163,7 @@ void shmipc_destroy_shm(shmhandle** handle)
 
 int shmipc_get_message_max_length(shmipc* me)
 {
+	assert(me);
 	return me->header.size;
 }
 
