@@ -158,11 +158,15 @@ shmipc_error shmstream_read_pkt(shmstream* me, char* out_type, char** out_pkt, s
 	assert(read_size == sizeof(uint64_t));
 	
 	size_t size = (size_t)*((uint64_t*)tmp);
-	assert(size);
 
-	char* buffer = malloc(size);
-	if(!buffer)
-		return SHMIPC_ERR_ALLOC;
+	char* buffer = NULL;
+	
+	// allocate buffer (if packet size is larger than 0)
+	if(size > 0){
+		buffer = malloc(size);
+		if(!buffer)
+			return SHMIPC_ERR_ALLOC;
+	}
 
 	char* rb = buffer;
 	
