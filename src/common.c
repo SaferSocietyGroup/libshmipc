@@ -154,7 +154,7 @@ shmipc_error shmstream_read_pkt(shmstream* me, char* out_type, char** out_pkt, s
 	shmipc_error e = shmipc_recv_message(me->reader, out_type, tmp, &read_size, 0);
 	if(e != SHMIPC_ERR_SUCCESS)
 		return e == SHMIPC_ERR_TIMEOUT ? SHMIPC_ERR_NO_DATA : e;
-	
+
 	assert(read_size == sizeof(uint64_t));
 	
 	size_t size = (size_t)*((uint64_t*)tmp);
@@ -163,7 +163,8 @@ shmipc_error shmstream_read_pkt(shmstream* me, char* out_type, char** out_pkt, s
 	
 	// allocate buffer (if packet size is larger than 0)
 	if(size > 0){
-		buffer = malloc(size);
+		// +1 since shmipc_recv_message adds \0 at the end of each write
+		buffer = malloc(size + 1);
 		if(!buffer)
 			return SHMIPC_ERR_ALLOC;
 	}
@@ -219,4 +220,9 @@ shmipc_error shmstream_write_pkt(shmstream* me, const char* type, const char* bu
 	}
 
 	return SHMIPC_ERR_SUCCESS;
+}
+
+void shmipc_free(void* ptr)
+{
+	free(ptr);
 }

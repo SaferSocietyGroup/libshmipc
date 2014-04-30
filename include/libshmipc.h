@@ -70,6 +70,7 @@ shmipc_error shmstream_read_pkt(shmstream* me, char* out_type, char** out_pkt, s
 shmipc_error shmstream_write_pkt(shmstream* me, const char* type, const char* buffer, size_t size);
 
 void shmstream_destroy(shmstream** me);
+void shmipc_free(void* ptr);
 
 #ifdef __cplusplus
 }
