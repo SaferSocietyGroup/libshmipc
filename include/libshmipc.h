@@ -49,6 +49,8 @@ int shmipc_get_message_max_length(shmipc* me);
 shmipc_error shmipc_send_message(shmipc* me, const char* type, const char* message, size_t length, int timeout);
 shmipc_error shmipc_recv_message(shmipc* me, char* out_type, char* out_message, size_t* out_size, int timeout);
 
+const char* shmipc_get_last_error_msg();
+
 size_t shmipc_get_buffer_size(shmipc* me);
 int shmipc_get_buffer_count(shmipc* me);
 

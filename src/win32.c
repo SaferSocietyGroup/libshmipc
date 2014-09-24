@@ -19,6 +19,9 @@
 #	define dprintf(...)
 #endif
 
+#define SHMIPC_ERROR_MSG_SIZE 2048
+static __thread char error_msg[SHMIPC_ERROR_MSG_SIZE];
+
 typedef struct __attribute__ ((packed)) {
 	uint32_t size;
 	uint32_t count;
@@ -78,8 +81,10 @@ static shmipc_error create_or_open_shm(const char* name, size_t* in_out_size, vo
 		return SHMIPC_ERR_ALLOC;
 		 
 	wchar_t* wname = str_to_wstr(name);
-	if(!wname)
-		return SHMIPC_ERR_ALLOC;
+	if(!wname){
+		ret = SHMIPC_ERR_ALLOC;
+		goto cleanup;
+	}
 
 	if(!open){
 		// TODO very large areas, above 4GB  
@@ -100,6 +105,7 @@ static shmipc_error create_or_open_shm(const char* name, size_t* in_out_size, vo
 	free(wname);
 	
 	if(!handle->file){
+		snprintf(error_msg, SHMIPC_ERROR_MSG_SIZE, "OpenFileMappingW failed: %d", GetLastError());
 		ret = SHMIPC_ERR_OPEN_SHM;
 		goto cleanup;
 	}
@@ -108,11 +114,11 @@ static shmipc_error create_or_open_shm(const char* name, size_t* in_out_size, vo
 	handle->view = MapViewOfFile(handle->file, rw ? FILE_MAP_WRITE : FILE_MAP_READ, 0, 0, 0);
 
 	if(!handle->view){
+		snprintf(error_msg, SHMIPC_ERROR_MSG_SIZE, "MapViewOfFile failed: %d", GetLastError());
 		ret = SHMIPC_ERR_OPEN_SHM;
 		goto cleanup;
 	}
 
-	*out_handle = handle;
 	*out_area = handle->view;
 
 	if(open){
@@ -130,6 +136,11 @@ cleanup:
 	// TODO close mapping on error
 	free(handle);
 	return ret;
+}
+
+const char* shmipc_get_last_error_msg()
+{
+	return error_msg;
 }
 
 shmipc_error shmipc_create_shm_rw(const char* name, size_t size, void** out_area, shmhandle** out_handle)
