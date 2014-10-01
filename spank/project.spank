@@ -1,16 +1,23 @@
-name		libshmipc
+[common]
+name		          libshmipc
 
-targettype	lib-static
-sourcedir	src
-cflags		Iinclude std=c99 Wall
-ldflags   static static-libgcc
+targettype	      lib-static
+sourcedir	        src
+cflags		        Iinclude std=c99 Wall
+ldflags           static static-libgcc
 
-inst_copy	$(target) $(inst_prefix)lib/$(target)
+inst_copy	        $(target) $(inst_prefix)lib/$(target)
 
-inst_mkdir $(inst_prefix)/include/$(name)
-inst_copy  include/$(name).h $(inst_prefix)/include/$(name)
+inst_mkdir        $(inst_prefix)/include/$(name)
+inst_copy         include/$(name).h $(inst_prefix)/include/$(name)
 
-inst_mkdir $(inst_prefix)lib/pkgconfig
-inst_copy  pkg-config/$(name).pc $(inst_prefix)lib/pkgconfig/$(name).pc
+inst_mkdir        $(inst_prefix)lib/pkgconfig
+inst_copy         pkg-config/$(name).pc $(inst_prefix)lib/pkgconfig/$(name).pc
 
-target_platform mingw32
+target_platform   mingw32
+
+[*debug: common]
+cflags            ggdb
+
+[release: common]
+postbuildscript   "$(host_dash)strip $(target)"
