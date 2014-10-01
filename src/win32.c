@@ -130,6 +130,8 @@ static shmipc_error create_or_open_shm(const char* name, size_t* in_out_size, vo
 		*in_out_size = info.RegionSize;
 	}
 
+	*out_handle = handle;
+
 	return SHMIPC_ERR_SUCCESS;
 
 cleanup:
