@@ -43,6 +43,7 @@ struct shmipc
 	shmipc_access_mode mode;
 	HANDLE read_sem, write_sem;
 	HANDLE file;
+	void* view; 
 };
 
 struct shmhandle
@@ -256,6 +257,8 @@ static shmipc_error create_or_open(const char* name, uint32_t buffer_size, uint3
 		goto cleanup;
 	}
 
+	me->view = mem;
+
 	if(!open)
 		memcpy(mem, me, sizeof(s_header));
 
@@ -343,7 +346,6 @@ shmipc_error shmipc_acquire_buffer_w(shmipc* me, char** out_buffer, int timeout)
 		return SHMIPC_ERR_WRONG_MODE;
 
 	//ASSERTMSG(me->mode == SHMIPC_AM_WRITE, "trying to acquire a write buffer from a read mmap");
-
 	
 	char* buffer;
 	shmipc_error err = acquire_buffer(me, timeout, &buffer);
@@ -405,10 +407,7 @@ shmipc_error shmipc_create(const char* name, size_t buffer_size, int buffer_coun
 
 void shmipc_destroy(shmipc** me)
 {
-	for(unsigned int i = 0; i < (*me)->header.count; i++){
-		UnmapViewOfFile((*me)->buffers[i]);
-	}
-
+	UnmapViewOfFile((*me)->view);
 	CloseHandle((*me)->file);
 	free((*me)->name);
 	free(*me);
