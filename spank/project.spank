@@ -24,9 +24,6 @@ target_platform   mingw32
 
 [debug64: common]
 target_platform   mingw64
-postbuildscript   $(host_dash)ranlib $(target)
 
 [release64: common]
-postbuildscript   $(host_dash)ranlib $(target)
-ostbuildscript   "$(host_dash)strip $(target)"
 target_platform   mingw64
