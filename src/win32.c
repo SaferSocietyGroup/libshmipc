@@ -369,7 +369,7 @@ shmipc_error shmipc_return_buffer(shmipc* me)
 }
 
 
-shmipc_error shmipc_return_buffer_w(shmipc* me, char** buffer, uint32_t length, const char* type)
+shmipc_error shmipc_return_buffer_w(shmipc* me, char** buffer, size_t length, const char* type)
 {
 	char* real_buf = (*buffer) -= sizeof(s_message_header);
 	s_message_header* header = (s_message_header*)real_buf;

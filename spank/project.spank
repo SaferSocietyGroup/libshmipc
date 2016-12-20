@@ -14,10 +14,17 @@ inst_copy         include/$(name).h $(inst_prefix)/include/$(name)
 inst_mkdir        $(inst_prefix)lib/pkgconfig
 inst_copy         pkg-config/$(name).pc $(inst_prefix)lib/pkgconfig/$(name).pc
 
-target_platform   mingw32
-
 [*debug: common]
 cflags            ggdb
+target_platform   mingw64
 
 [release: common]
 postbuildscript   "$(host_dash)strip $(target)"
+target_platform   mingw64
+
+[debug64: common]
+target_platform   mingw64
+
+[release64: common]
+postbuildscript   "$(host_dash)strip $(target)"
+target_platform   mingw64
