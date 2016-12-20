@@ -16,15 +16,17 @@ inst_copy         pkg-config/$(name).pc $(inst_prefix)lib/pkgconfig/$(name).pc
 
 [*debug: common]
 cflags            ggdb
-target_platform   mingw64
+target_platform   mingw32
 
 [release: common]
 postbuildscript   "$(host_dash)strip $(target)"
-target_platform   mingw64
+target_platform   mingw32
 
 [debug64: common]
 target_platform   mingw64
+postbuildscript   $(host_dash)ranlib $(target)
 
 [release64: common]
-postbuildscript   "$(host_dash)strip $(target)"
+postbuildscript   $(host_dash)ranlib $(target)
+ostbuildscript   "$(host_dash)strip $(target)"
 target_platform   mingw64
