@@ -19,7 +19,6 @@ cflags            ggdb
 target_platform   mingw32
 
 [release: common]
-postbuildscript   "$(host_dash)strip $(target)"
 target_platform   mingw32
 
 [debug64: common]
